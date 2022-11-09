@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:myapp/Testing/test.dart';
 
 import 'drawingApp-1.dart';
 
@@ -20,7 +21,9 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: const DrawingApp_1(),
+      home: const
+          // TestWidget1()
+          DrawingApp_1(),
     );
   }
 }

@@ -1,19 +1,29 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 import 'dart:ui' as ui;
 import 'dart:ui';
+import 'package:dotted_border/dotted_border.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:image_gallery_saver/image_gallery_saver.dart';
-import 'package:myapp/drawingApp-1.dart';
+import 'package:myapp/Drawing/ImageFileWidget.dart';
+import 'package:myapp/Drawing/customPainter.dart';
+import 'package:myapp/Testing/test.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import 'Drawing/DrawWidgetRow.dart';
+import 'Drawing/doneWidget.dart';
+import 'Drawing/drawWidget.dart';
+import 'Drawing/textMaker.dart';
 import 'ImageText.dart';
-import 'buttonWidget.dart';
 import 'editImage.dart';
+
+typedef MatrixGestureDetectorCallback = void Function(
+    Matrix4 matrix, Matrix4 rotationDeltaMatrix);
 
 class MapArea {
   Offset point;
@@ -31,6 +41,25 @@ class DrawingApp_2 extends StatefulWidget {
 }
 
 class _DrawingApp_2State extends EditImage {
+  static Matrix4 compose(Matrix4? matrix, Matrix4? rotationMatrix) {
+    if (matrix == null) matrix = Matrix4.identity();
+
+    if (rotationMatrix != null) matrix = rotationMatrix * matrix;
+    return matrix!;
+  }
+
+  ///
+  /// Decomposes [matrix] into [MatrixDecomposedValues.translation],
+  /// [MatrixDecomposedValues.scale] and [MatrixDecomposedValues.rotation] components.
+  ///
+  static decomposeToValues(Matrix4 matrix) {
+    var array = matrix.applyToVector3Array([0, 0, 0, 1, 0, 0]);
+    Offset delta = Offset(array[3] - array[0], array[4] - array[1]);
+    double rotation = delta.direction;
+    // print(rotation.toString() + "RRRRRRRRRRRRRRRRRRRRRRRR");
+    return rotation;
+  }
+
   GlobalKey _globalKey = GlobalKey();
 
   List<MapArea?> points = [];
@@ -149,10 +178,19 @@ class _DrawingApp_2State extends EditImage {
   double _scale = 1.0;
   double previousScale = 1.0;
 
+  double rotation = 0.0;
+  var lastRotation = 0.0;
+
   bool makeTextScalale = false;
+
+  bool showborder = false;
+
+  Matrix4 rotationDeltaMatrix = Matrix4.identity();
+  Matrix4 matrix = Matrix4.identity();
 
   @override
   Widget build(BuildContext context) {
+    var res = decomposeToValues(matrix);
     final double width = MediaQuery.of(context).size.width;
     final double height = MediaQuery.of(context).size.height;
 
@@ -190,110 +228,41 @@ class _DrawingApp_2State extends EditImage {
           ),
           child: SingleChildScrollView(
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              // mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                // Row(
+                //   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                //   children: [
+                //   ],
+                // ),
                 Stack(
+                  // fit: StackFit.loose,
                   alignment: Alignment.center,
                   children: [
                     RepaintBoundary(
                       key: _globalKey,
                       child: SizedBox(
-                        width: width * 0.98,
-                        height: height * 0.85,
+                        width: width * 1,
+                        height: height * 0.9,
                         child: GestureDetector(
-                          onScaleStart: (ScaleStartDetails details) {
-                            print(details);
-                            // _initialFocalPoint = details.focalPoint;
-                            if (showDrawBox == true) {
-                              setState(() {
-                                points.add(MapArea(
-                                  point: details.focalPoint,
-                                  areaPaint: Paint()
-                                    ..strokeCap = StrokeCap.round
-                                    ..color = selectedColor!
-                                    ..strokeWidth = strokeWidth!
-                                    ..isAntiAlias = true,
-                                ));
-                              });
-                            } else {}
-                            previousScale = _scale;
-                          },
-                          onScaleUpdate: (ScaleUpdateDetails details) {
-                            print(details.scale.toString() + "------------");
-                            if (showDrawBox == true) {
-                              setState(() {
-                                points.add(MapArea(
-                                    point: details.focalPoint,
-                                    areaPaint: Paint()
-                                      ..strokeCap = StrokeCap.round
-                                      ..color = selectedColor!
-                                      ..strokeWidth = strokeWidth!
-                                      ..isAntiAlias = true));
-                              });
-                            } else {}
-                            setState(() {
-                              _scale = previousScale * details.scale;
-                            });
-                            changeSize(_scale);
-                          },
-                          onScaleEnd: (ScaleEndDetails details) {
-                            print(details);
-                            setState(() {
-                              points.add(null);
-                            });
-                            previousScale = 1.0;
-                            setState(() {});
-                          },
-
-                          // onPanDown: (details) {
-//  if (showDrawBox == true) {
-//                               setState(() {
-//                                 points.add(MapArea(
-//                                   point: details.globalPosition,
-//                                   areaPaint: Paint()
-//                                     ..strokeCap = StrokeCap.round
-//                                     ..color = selectedColor!
-//                                     ..strokeWidth = strokeWidth!
-//                                     ..isAntiAlias = true,
-//                                 ));
-//                               });
-//                             } else {}
-                          // },
-                          // onPanUpdate: (details) {
-                          //   if (showDrawBox == true) {
-                          //     setState(() {
-                          //       points.add(MapArea(
-                          //           point: details.localPosition,
-                          //           areaPaint: Paint()
-                          //             ..strokeCap = StrokeCap.round
-                          //             ..color = selectedColor!
-                          //             ..strokeWidth = strokeWidth!
-                          //             ..isAntiAlias = true));
-                          //     });
-                          //   } else {}
-                          // },
-                          // onPanEnd: (details) {
-                          // setState(() {
-                          //   points.add(null);
-                          // });
-                          // },
+                          onScaleStart: onScaleStart,
+                          onScaleUpdate: onScaleUpdate,
+                          onScaleEnd: onScaleEnd,
                           child: Stack(
-                            fit: StackFit.expand,
+                            // fit: StackFit.expand,
                             children: [
                               Image.file(
                                 widget.image!,
-                                fit: BoxFit.fill,
+                                fit: BoxFit.cover,
+                                height: height * 0.9,
                               ),
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(20.0),
-                                child: CustomPaint(
-                                  size: Size(width * 0.98, height * 0.85),
-                                  painter: MyCustomPainter(
-                                    points: points,
-                                    selectColor: selectedColor,
-                                    disable: false,
-                                  ),
-                                ),
+                              CustomPainterScreen(
+                                width: width * 1,
+                                height: height * 0.9,
+                                points: points,
+                                selectedColor: selectedColor,
                               ),
                               for (int i = 0; i < texts.length; i++)
                                 Positioned(
@@ -301,79 +270,21 @@ class _DrawingApp_2State extends EditImage {
                                   top: texts[i].top,
                                   child: Draggable(
                                     feedback: ImageText(
-                                        textInfo: texts[i],
-                                        textScaleFactor: _scale),
+                                      textInfo: texts[i],
+                                      textScaleFactor: _scale,
+                                      angleData: res,
+                                    ),
                                     child: GestureDetector(
                                       onTap: () {
-                                        print(
-                                            i.toString() + "================");
-                                        setCurrenIndex(
-                                          context,
-                                          i,
-                                        );
+                                        setCurrenIndex(context, i, showborder);
                                       },
-                                      // onScaleStart:
-                                      //     (ScaleStartDetails details) {
-                                      //   print(details);
-                                      //   // _initialFocalPoint = details.focalPoint;
-                                      //   previousScale = _scale;
-                                      // },
-                                      // onScaleUpdate:
-                                      //     (ScaleUpdateDetails details) {
-                                      //   print(details.scale.toString() +
-                                      //       "------------");
-
-                                      //   setState(() {
-                                      //     _scale =
-                                      //         previousScale * details.scale;
-                                      //   });
-                                      // },
-                                      // onScaleEnd: (ScaleEndDetails details) {
-                                      //   print(details);
-                                      //   previousScale = 1.0;
-                                      //   setState(() {});
-                                      // },
-                                      // onScaleStart: (details) {
-                                      //   print("Strat....................");
-                                      //   print(details.toString() +
-                                      //       ";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;");
-                                      //   _initialScale = _scaleFactor;
-
-                                      //   print(details.toString() +
-                                      //       "--------------");
-                                      // },
-                                      // onScaleUpdate: (details) {
-                                      //   print(details.toString() +
-                                      //       ",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,");
-                                      //   setState(() {
-                                      //     _scaleFactor =
-                                      //         _initialScale * details.scale;
-                                      //   });
-                                      //   print(_scaleFactor.toString() +
-                                      //       "''''''''''''''''''''''''''''''''");
-                                      // },
-                                      child:
-                                          //  Transform.translate(
-                                          //   offset: _offset + _sessionOffset,
-                                          //   child: Transform.scale(
-                                          //     scale: _scale,
-                                          //     child: Container(
-                                          //       padding: const EdgeInsets.all(12.0),
-                                          //       color: Colors.red,
-                                          //       child: Text(
-                                          //         "Flutter123467890",
-                                          //         // textScaleFactor: _scale,
-                                          //         // style: TextStyle(fontSize: 30),
-                                          //       ),
-                                          //     ),
-                                          //   ),
-                                          // ),
-
-                                          ImageText(
+                                      child: ImageText(
                                         textInfo: texts[i],
                                         textScaleFactor: texts[i].scaleData,
+                                        angleData: texts[i].angleData,
                                       ),
                                     ),
+                                    /////// Change Dragging feature.................
                                     onDragEnd: (drag) {
                                       final renderBox = context
                                           .findRenderObject() as RenderBox;
@@ -392,55 +303,19 @@ class _DrawingApp_2State extends EditImage {
                         ),
                       ),
                     ),
-                    Positioned(
-                      right: 10,
-                      top: 10,
-                      child: InkWell(
-                        onTap: () {
-                          _save();
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(8.0),
-                          decoration: BoxDecoration(boxShadow: [
-                            BoxShadow(
-                                color: Colors.grey.withOpacity(0.5),
-                                blurRadius: 50,
-                                spreadRadius: 3,
-                                offset: Offset(0.0, 0.0))
-                          ]),
-                          child: const Text(
-                            "DONE",
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
-                      ),
+                    DoneWidget(
+                      left: 10.0,
+                      top: 20.0,
+                      buttonName: "DONE",
+                      onTap: () {
+                        _save();
+                      },
                     ),
-                    Positioned(
-                      left: 10,
-                      top: 10,
-                      child: InkWell(
-                        onTap: () => backShowDialog(context),
-                        child: Container(
-                          padding: const EdgeInsets.all(8.0),
-                          decoration: BoxDecoration(boxShadow: [
-                            BoxShadow(
-                                color: Colors.grey.withOpacity(0.5),
-                                blurRadius: 50,
-                                spreadRadius: 3,
-                                offset: Offset(0.0, 0.0))
-                          ]),
-                          child: const Text(
-                            "BACK",
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
-                      ),
+                    DoneWidget(
+                      right: 10.0,
+                      top: 20.0,
+                      onTap: () => backShowDialog(context),
+                      buttonName: "Back",
                     ),
                     _isLoading == true
                         ? const Center(
@@ -450,8 +325,8 @@ class _DrawingApp_2State extends EditImage {
                         : const SizedBox(),
                   ],
                 ),
-                SizedBox(
-                  height: 10,
+                const SizedBox(
+                  height: 8,
                 ),
                 Align(
                   alignment: Alignment.bottomCenter,
@@ -460,112 +335,52 @@ class _DrawingApp_2State extends EditImage {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       showDrawBox == true
-                          ? Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                AnimatedContainer(
-                                  duration: Duration(seconds: 1),
-                                  height: 40,
-                                  // margin: const EdgeInsets.only(bottom: 10),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(25.0),
-                                  ),
-                                  width: width * 0.60,
-                                  child: Row(
-                                    children: [
-                                      IconButton(
-                                        onPressed: () {
-                                          selectColor();
-                                        },
-                                        icon: Icon(Icons.color_lens,
-                                            color: selectedColor),
-                                      ),
-                                      Expanded(
-                                        child: Slider(
-                                          min: 1.0,
-                                          max: 10.0,
-                                          activeColor: selectedColor,
-                                          value: strokeWidth!,
-                                          onChanged: (value) {
-                                            setState(() {
-                                              strokeWidth = value;
-                                            });
-                                          },
-                                        ),
-                                      ),
-                                      IconButton(
-                                        onPressed: () {
-                                          setState(() {
-                                            points.clear();
-                                          });
-                                        },
-                                        icon: const Icon(Icons.layers_clear),
-                                      )
-                                    ],
-                                  ),
-                                ),
-                                InkWell(
-                                  onTap: () {
-                                    setState(() {
-                                      showDrawBox = false;
-                                    });
-                                  },
-                                  child: Container(
-                                      // color: Colors.white,
-                                      padding: const EdgeInsets.all(8.0),
-                                      child: Icon(
-                                        Icons.cancel,
-                                        color: Colors.white,
-                                        size: 30,
-                                      )),
-                                )
-                              ],
-                            )
-                          : InkWell(
-                              onTap: () {
+                          ? DrawWidgetRowContent(
+                              onChanged3: (value) {
                                 setState(() {
-                                  print("true============");
-                                  showDrawBox = true;
+                                  strokeWidth = value;
                                 });
                               },
-                              child: AnimatedContainer(
-                                alignment: Alignment.center,
-                                height: 40,
-                                duration: Duration(seconds: 1),
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 10, vertical: 8),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius:
-                                      BorderRadius.all(Radius.circular(8.0)),
-                                ),
-                                child: Text("Draw"),
-                              ),
-                            ),
+                              onPressed1: () {
+                                selectColor();
+                              },
+                              onPressed2: () {
+                                setState(() {
+                                  points.clear();
+                                });
+                              },
+                              onTap1: () {
+                                setState(() {
+                                  showDrawBox = false;
+                                });
+                              },
+                              selectedColor: selectedColor,
+                              strokeWidth: strokeWidth,
+                              width: width,
+                            )
+                          : DrawWidget(
+                              onTap: () => setState(() {
+                                    showDrawBox = true;
+                                  })),
                       SizedBox(width: 10),
-                      InkWell(
-                        onTap: () => addNewDialog(context),
-                        child: Container(
-                          alignment: Alignment.center,
-                          height: 40,
-                          width: 40,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            // shape: BoxShape.circle,
-                            borderRadius: BorderRadius.circular(100.0),
-                          ),
-                          padding: const EdgeInsets.all(2),
-                          child: const Text(
-                            "A",
-                            style: TextStyle(
-                              color: Colors.black,
-                              fontSize: 16,
-                            ),
-                          ),
-                        ),
-                      )
+                      // textWriting == true
+                      //     ?
+                      TextMaker(onTap: () {
+                        addNewDialog(context);
+                        setState(() {
+                          showDrawBox = false;
+                        });
+                      })
+                      // : InkWell(
+                      //     onTap: () {
+                      //       selectColor();
+                      //     },
+                      //     child: Container(
+                      //       padding: EdgeInsets.all(8.0),
+                      //       color: Colors.white,
+                      //       child: Icon(Icons.color_lens),
+                      //     ),
+                      //   ),
                     ],
                   ),
                 ),
@@ -575,6 +390,93 @@ class _DrawingApp_2State extends EditImage {
         ),
       ),
     );
+  }
+
+  _ValueUpdater<double> rotationUpdater = _ValueUpdater(
+    value: 0.0,
+    onUpdate: (oldVal, newVal) => newVal - oldVal,
+  );
+
+  void onScaleStart(ScaleStartDetails details) {
+    print(details);
+    // _initialFocalPoint = details.focalPoint;
+    if (showDrawBox == true) {
+      setState(() {
+        points.add(MapArea(
+          point: details.focalPoint,
+          areaPaint: Paint()
+            ..strokeCap = StrokeCap.round
+            ..color = selectedColor!
+            ..strokeWidth = strokeWidth!
+            ..isAntiAlias = true,
+        ));
+      });
+    } else {
+      rotationUpdater.value = 0.0;
+    }
+    previousScale = _scale;
+  }
+
+  void onScaleUpdate(ScaleUpdateDetails details) {
+    // print(details.scale.toString() + "------------");
+    if (showDrawBox == true) {
+      setState(() {
+        points.add(MapArea(
+            point: details.focalPoint,
+            areaPaint: Paint()
+              ..strokeCap = StrokeCap.round
+              ..color = selectedColor!
+              ..strokeWidth = strokeWidth!
+              ..isAntiAlias = true));
+      });
+    } else {
+      setState(() {
+        _scale = previousScale * details.scale;
+      });
+      changeSize(_scale);
+
+      // handle matrix rotating
+      if (details.rotation != 0.0) {
+        double rotationDelta = rotationUpdater.update(details.rotation);
+        rotationDeltaMatrix = _rotate(rotationDelta, details.focalPoint);
+        matrix = rotationDeltaMatrix * matrix;
+      }
+
+      decomposeToValues(matrix);
+
+      setState(() {
+        rotationDeltaMatrix = matrix;
+        var rotation = decomposeToValues(matrix);
+        changeAngle(rotation);
+      });
+    }
+  }
+
+  void onScaleEnd(ScaleEndDetails details) {
+    print(details);
+    setState(() {
+      points.add(null);
+    });
+    rotation = 0.0;
+    previousScale = 1.0;
+    setState(() {});
+  }
+
+  Matrix4 _rotate(double angle, Offset focalPoint) {
+    var c = cos(angle);
+    var s = sin(angle);
+    var dx = (1 - c) * focalPoint.dx + s * focalPoint.dy;
+    var dy = (1 - c) * focalPoint.dy - s * focalPoint.dx;
+
+    //  ..[0]  = c       # x scale
+    //  ..[1]  = s       # y skew
+    //  ..[4]  = -s      # x skew
+    //  ..[5]  = c       # y scale
+    //  ..[10] = 1       # diagonal "one"
+    //  ..[12] = dx      # x translation
+    //  ..[13] = dy      # y translation
+    //  ..[15] = 1       # diagonal "one"
+    return Matrix4(c, s, 0, 0, -s, c, 0, 0, 0, 0, 1, 0, dx, dy, 0, 1);
   }
 }
 
@@ -615,5 +517,38 @@ class MyCustomPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) {
     return true;
+  }
+}
+
+typedef _OnUpdate<T> = T Function(T oldValue, T newValue);
+
+class _ValueUpdater<T> {
+  final _OnUpdate<T> onUpdate;
+  T value;
+
+  _ValueUpdater({
+    required this.value,
+    required this.onUpdate,
+  });
+
+  T update(T newValue) {
+    T updated = onUpdate(value, newValue);
+    value = newValue;
+    return updated;
+  }
+}
+
+class MatrixDecomposedValues {
+  /// Translation, in most cases useful only for matrices that are nothing but
+  /// a translation (no scale and no rotation).
+
+  /// Rotation in radians, (-pi..pi) range.
+  final double rotation;
+
+  MatrixDecomposedValues(this.rotation);
+
+  @override
+  String toString() {
+    return 'MatrixDecomposedValues( rotation: ${rotation.toStringAsFixed(3)})';
   }
 }

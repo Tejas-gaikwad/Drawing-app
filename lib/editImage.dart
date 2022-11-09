@@ -12,9 +12,11 @@ abstract class EditImage extends State<DrawingApp_2> {
 
   bool textWriting = false;
 
+  // bool shoWborder = false;
+
   int currentIndex = 0;
 
-  setCurrenIndex(BuildContext context, index) {
+  setCurrenIndex(BuildContext context, index, showBorder) {
     setState(() {
       currentIndex = index;
     });
@@ -25,6 +27,12 @@ abstract class EditImage extends State<DrawingApp_2> {
   changeSize(scaleData) {
     setState(() {
       texts[currentIndex].scaleData = scaleData;
+    });
+  }
+
+  changeAngle(angleData) {
+    setState(() {
+      texts[currentIndex].angleData = angleData;
     });
   }
 
@@ -42,7 +50,12 @@ abstract class EditImage extends State<DrawingApp_2> {
             fontSize: 20,
             textAlign: TextAlign.left,
             scaleData: 1.0,
-            // scaleData: _scale,
+            showBorder: true,
+            radius: Radius.circular(10.0),
+            padding: EdgeInsets.all(10.0),
+            borderColor: Colors.white,
+            dashPattern: [3, 1],
+            angleData: 0.0,
           ),
         );
         textController.clear();
@@ -129,8 +142,6 @@ abstract class EditImage extends State<DrawingApp_2> {
         textWriting = true;
       });
     }
-
-    print(textWriting.toString() + "-----------------");
   }
 
   backShowDialog(context) {

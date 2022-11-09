@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
 
 class TextInfo {
   String text;
@@ -10,9 +11,20 @@ class TextInfo {
   double fontSize;
   TextAlign textAlign;
   double scaleData;
-  //  _textScaleFactor;
+  double angleData;
+  bool showBorder = false;
+  List<double>? dashPattern;
+  final radius;
+  final padding;
+  final borderColor;
 
-  TextInfo({
+  TextInfo(
+      //
+      {
+    required this.dashPattern,
+    this.radius,
+    this.padding,
+    this.borderColor = Colors.white,
     required this.text,
     required this.left,
     required this.top,
@@ -22,5 +34,7 @@ class TextInfo {
     required this.fontSize,
     required this.textAlign,
     required this.scaleData,
+    required this.showBorder,
+    required this.angleData,
   });
 }
